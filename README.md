@@ -53,6 +53,16 @@ The plugin sorts all outgoing and incoming parameters alphabetically and wraps t
 ### Signature Verification
 During a notification (`onPaymentNotification`), the plugin validates the signature of the incoming request before updating any order data, ensuring that the request truly came from the payment gateway.
 
+## UCP (Universal Commerce Protocol) Support
+
+The example plugin includes three optional methods for UCP integration, allowing AI agents to purchase products on your store:
+
+- **`getPaymentURL(&$order, &$method)`**: Returns a hosted checkout URL for redirect-based payments.
+- **`onUcpPaymentProcess(&$order, &$paymentContext, &$paymentResult)`**: Processes direct payment tokens (e.g., Google Pay) server-side.
+- **`getUcpGooglePayConfig()`**: Returns your gateway's Google Pay configuration for UCP discovery.
+
+All three methods are optional. See the [UCP tutorial](https://www.hikashop.com/support/documentation/529-universal-commerce-protocol.html) for full documentation.
+
 ## Useful Links
 
 - **Official Website**: [https://www.hikashop.com](https://www.hikashop.com)

@@ -309,6 +309,160 @@ class plgHikashoppaymentExample extends hikashopPaymentPlugin
 	}
 
 	/**
+	 * UCP (Universal Commerce Protocol) - Hosted Checkout URL
+	 *
+	 * Called by the UCP plugin when an AI agent completes a checkout without providing a payment token.
+	 * This method should create a hosted checkout session on the gateway and return the URL
+	 * where the customer will be redirected to complete payment.
+	 *
+	 * Return the URL string on success, or false on failure (set $this->last_error with the error message).
+	 *
+	 * @param object $order The HikaShop order object
+	 * @param object $method The payment method object with its parameters
+	 * @return string|false The hosted checkout URL, or false on failure
+	 */
+	public function getPaymentURL(&$order, &$method) {
+		if(!empty($method->payment_params)) {
+			if(is_string($method->payment_params))
+				$method->payment_params = hikashop_unserialize($method->payment_params);
+			$this->payment_params = $method->payment_params;
+		}
+
+		if(empty($this->payment_params->identifier)) {
+			$this->last_error = 'Payment plugin not configured';
+			return false;
+		}
+
+		$amount = round($order->order_full_price * 100);
+		$currency_code = hikashop_get('class.currency')->get($order->order_currency_id)->currency_code;
+
+		// Example: Call your gateway API to create a hosted checkout session
+		// $response = $this->callGatewayAPI('createHostedCheckout', array(
+		//     'amount' => $amount,
+		//     'currency' => $currency_code,
+		//     'order_id' => $order->order_id,
+		//     'return_url' => HIKASHOP_LIVE . 'index.php?option=com_hikashop&ctrl=checkout&task=notify&notif_payment=' . $this->name . '&tmpl=component&order_id=' . $order->order_id,
+		// ));
+		//
+		// if(!$response || !empty($response->error)) {
+		//     $this->last_error = $response->error->message ?? 'Failed to create hosted checkout';
+		//     return false;
+		// }
+		//
+		// // Optionally store the hosted checkout ID on the order for later lookup in onPaymentNotification
+		// $update = new stdClass();
+		// $update->order_id = (int)$order->order_id;
+		// $update->order_payment_params = @$order->order_payment_params;
+		// if(!empty($update->order_payment_params) && is_string($update->order_payment_params))
+		//     $update->order_payment_params = hikashop_unserialize($update->order_payment_params);
+		// if(empty($update->order_payment_params))
+		//     $update->order_payment_params = new stdClass();
+		// $update->order_payment_params->hosted_checkout_id = $response->id;
+		// $orderClass = hikashop_get('class.order');
+		// $orderClass->save($update);
+		//
+		// return $response->redirect_url;
+
+		return false; // Replace with actual implementation
+	}
+
+	/**
+	 * UCP - Direct Token Payment Processing
+	 *
+	 * Called by the UCP plugin when an AI agent completes a checkout WITH a payment token
+	 * (e.g., a Google Pay token). This method should charge the token via the gateway's API.
+	 *
+	 * Populate $paymentResult with the outcome:
+	 *   - $paymentResult->success = true/false
+	 *   - $paymentResult->message = 'Error message' (on failure)
+	 *   - $paymentResult->transaction_id = 'txn_123' (on success)
+	 *   - $paymentResult->requires_redirect = true (if 3DS challenge needed)
+	 *   - $paymentResult->continue_url = 'https://...' (the 3DS challenge URL)
+	 *
+	 * @param object $order The HikaShop order object
+	 * @param array $paymentContext Contains 'credential' (with 'token'), 'handler_id', 'payment_instrument', 'risk_signals'
+	 * @param object $paymentResult Object to populate with the payment outcome
+	 */
+	public function onUcpPaymentProcess(&$order, &$paymentContext, &$paymentResult) {
+		// Only handle orders that use this payment method
+		if(empty($order->order_payment_method) || $order->order_payment_method !== $this->name)
+			return;
+		if(!$this->pluginParams($order->order_payment_id))
+			return;
+
+		$token = @$paymentContext['credential']['token'];
+		if(empty($token)) {
+			$paymentResult->success = false;
+			$paymentResult->message = 'No payment token provided';
+			return;
+		}
+
+		$amount = round($order->order_full_price * 100);
+		$currency_code = hikashop_get('class.currency')->get($order->order_currency_id)->currency_code;
+
+		// Example: Call your gateway API to charge the token
+		// $response = $this->callGatewayAPI('createPayment', array(
+		//     'amount' => $amount,
+		//     'currency' => $currency_code,
+		//     'token' => $token,
+		//     'order_id' => $order->order_id,
+		//     'return_url' => HIKASHOP_LIVE . 'index.php?option=com_hikashop&ctrl=checkout&task=notify&notif_payment=' . $this->name . '&tmpl=component&order_id=' . $order->order_id,
+		// ));
+		//
+		// if(!empty($response->error)) {
+		//     $paymentResult->success = false;
+		//     $paymentResult->message = $response->error->message;
+		//     return;
+		// }
+		//
+		// // Handle 3D Secure challenge if the gateway requires it
+		// if(!empty($response->requires_action) && !empty($response->redirect_url)) {
+		//     $paymentResult->requires_redirect = true;
+		//     $paymentResult->continue_url = $response->redirect_url;
+		//     return;
+		// }
+		//
+		// // Payment succeeded
+		// $paymentResult->success = true;
+		// $paymentResult->transaction_id = $response->transaction_id;
+
+		$paymentResult->success = false;
+		$paymentResult->message = 'Not implemented'; // Replace with actual implementation
+	}
+
+	/**
+	 * UCP - Google Pay Gateway Configuration
+	 *
+	 * Called by the UCP plugin during discovery (GET /.well-known/ucp) to detect
+	 * whether this payment plugin supports Google Pay tokenization.
+	 *
+	 * Return an array with your gateway name and merchant ID, or null if not supported.
+	 * The 'gateway' value must match the gateway identifier expected by Google Pay
+	 * (see https://developers.google.com/pay/api/web/reference/request-objects#gateway).
+	 *
+	 * @return array|null Array with 'gateway' and 'gatewayMerchantId' keys, or null
+	 */
+	public function getUcpGooglePayConfig() {
+		if(empty($this->plugin_params)) {
+			if(!$this->pluginParams())
+				return null;
+		}
+
+		// Example: Return your gateway's Google Pay configuration
+		// The 'gateway' value is assigned by Google Pay (e.g., 'stripe', 'worldline', 'adyen', etc.)
+		// The 'gatewayMerchantId' is your merchant identifier on that gateway
+		//
+		// if(empty($this->plugin_params->identifier))
+		//     return null;
+		// return array(
+		//     'gateway' => 'example',
+		//     'gatewayMerchantId' => $this->plugin_params->identifier
+		// );
+
+		return null; // Replace with actual implementation if your gateway supports Google Pay
+	}
+
+	/**
 	 * Generates a security signature based on a shared secret (password).
 	 * This follows a typical gateway requirement: sorting parameters and hashing them.
 	 *
